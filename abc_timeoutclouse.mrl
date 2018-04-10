@@ -1,0 +1,32 @@
+#timeout 5 mins for all EVENT,unit seconds
+execute Timer_on_EVENT_close :
+EVENT ($EV)
+when $EV.status != 'CLOSED'
+{
+	set_timer($EV,1800,'CLOSED');
+}
+END
+
+timer Event_close:
+EVENT ($EV)
+timer_info : equals 'CLOSED'
+{
+	if (time_stamp() - $EV.mc_date_modification > 300 ) then
+	{
+		$EV.status=CLOSED;
+	}
+}
+END
+
+new TimeoutNew:MC_CELL_ACTION_RESULT($E) where [ $E.status != CLOSED ]
+triggers
+{
+	set_timer($E,86400,EventTimeout);
+}
+END
+timer TimeoutTimer:MC_CELL_ACTION_RESULT($E) where [ $E.status != CLOSED ]
+timer_info: == EventTimeout
+{
+	$E.status = CLOSED;
+}
+END

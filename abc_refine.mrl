@@ -1,0 +1,106 @@
+##refine mc_object for LOG monitoring
+refine log_object:PATROL_EV($EV)
+where [$EV.mc_object_class == 'LOGMON']
+{
+	$EV.mc_object = strreplace($EV.mc_object,'PN0','');
+	
+}
+END
+refine log_customize_msg:PATROL_EV($EV)
+where [$EV.p_class == 'LOGGeneral']
+{
+	$EV.mc_object = $EV.p_origin;
+	$EV.mc_object_class = 'LOGMON';
+	$EV.mc_parameter = 'LOGSearchString';
+#	$EV.mc_parameter_value = 'matched';
+#	$EV.pes_alarm_max='N/A';
+#	$EV.pes_alarm_min='N/A';
+}
+END
+
+#for NOTIFIED EVENT
+refine log_msg_refine_evspring:PATROL_EV($EV)
+where [ $EV.mc_object_class == 'LOGMON' AND $EV.p_catalog == 'AS_EVENTSPRING' AND $EV.p_class == 'NOTIFY_EVENT' AND $EV.severity >= WARNING ]
+{
+	$EV.msg=listgetelt(strtolist(listgetelt($EV.p_args,1),','),20);
+}
+END
+
+#for Patrol device ping,refine the mc_host
+refine ref_ping_host:PATROL_EV($EV)
+where [ $EV.mc_object_class == 'PPM_Device' AND $EV.mc_host contains 'ping-' ]
+{
+	$EV.mc_host = $EV.mc_host_address
+}
+END
+#refine port monitoring fileds #2017/03/27
+refine ref_portping_host:PATROL_EV($EV)
+where [ $EV.mc_object_class == 'APP_PORT' AND $EV.mc_parameter == 'PortConnectedStatus' ]
+{
+	$inst=strtolist($EV.p_instance,'_');
+	$EV.mc_host=listgetelt($inst,1);
+	$EV.mc_object=listgetelt($inst,2);
+	if($EV.mc_parameter_value == '1.000000') then
+	{
+		$EV.mc_parameter_value = 'Down';
+	}
+	else
+	{
+		if($EV.mc_parameter_value == '0.000000') then
+          	{
+                  $EV.mc_parameter_value = 'Up';
+          	}
+		
+	};
+}
+END
+
+
+
+
+##mapping patrol event severity to ocms
+#BPPM:WARNING->MINOR->MAJOR->CRITICAL
+#PATROL:WARNING->CRITICAL
+refine ref_severity_patrol:PATROL_EV($EV)
+where [ $EV.severity != OK ]
+{	
+   if ($EV.mc_original_severity == 'CRITICAL') then
+   {
+		if ($EV.mc_object_class within ['CPU','MEMORY','DCM','NT_HEALTH','SWAP','NT_SERVICES','PMW_APPSERVER','PMW_SERVER_RESOURCES','SYBASE_PERFORMANCE'] AND $EV.mc_parameter within ['CPUCpuUtil','CPUWio','MEMAppUsablePerc','DCMStatus','ProcessorUtilization','SWPTotSwapUsedPercent','MemoryUsage','ServiceStatus','AppServerAvailability','ProcessCpuUsage','PercentMemoryUsed','CpuIoBusy','CpuBusy']) then
+		{
+		$EV.severity = 'MINOR';
+	    };
+		if ($EV.mc_object_class within ['FILESYSTEM','APP_PORT','NT_LOGICAL_DISKS','UP_AIX_ERR','UP_AIX_ERRPT','SYBASE_AVAILABILITY','SYBASE_NETWORK_STD','SYBASE_DISK_STD','SYBASE_DATABASE','SYBASE_AVAILABILITY','ORACLE_AVAILABILITY','ORACLE_LISTENER','ORACLE_CAPACITY','ORACLE_PERFORMANCE','ORACLE_JOBS','ORACLE_ASM_DGROUP','ORACLE_ASM_DISK','ORACLE_ETSM_REGULAR_TBSP_INSTANCE','ORACLE_RAC_DATABASE','ORACLE_PLUGABLE_INSTANCE','ORACLE_PLUGGABLE_TS_INST'] AND $EV.mc_parameter within ['FSCapacity','FSInodeUsedPercent','LDldFreeSpacePercent','PermHardNum','TppuiSouNum','PermOtherNum','errdemonStatus','ASE_Status','PacketErrs','DiskIoErrs','DatabaseSpaceUsedPCT','LogSpaceUsedPCT','ErrorLogUpdates','BkupErrorLogUpdates','BackupServerStatus','InstanceStatus','ArchFreeSpace','Alerts','TempTSLeftPct','ListenerStatus','AlertLogSize','LocksFree','ProcsLeft','TransLeft','LockWaitRatio','FailedJobs','FreeMBPct','DiskGroupStatus','PctUsed','MemberStatus','PDB_Status']) then
+	    {
+		$EV.severity = 'MAJOR';
+		};
+		if ($EV.mc_object_class within ['LOGMON','APP_PORT','PPM_Device','UP_AIX_ERR','SYBASE_AVAILABILITY'] AND $EV.mc_parameter within ['LOGSearchString','PortConnectedStatus','Availability','PermHardNum','ASE_Status']) then 
+        {
+			$EV.severity = 'CRITICAL';
+	     };	
+   };
+    if ($EV.mc_original_severity == 'WARNING') then
+   {
+   
+     if ($EV.mc_object_class within ['CPU','MEMORY','DCM','NT_HEALTH','NT_SERVICES','PMW_APPSERVER','PMW_SERVER_RESOURCES','SYBASE_PERFORMANCE','ORACLE_AVAILABILITY','ORACLE_LISTENER','ORACLE_CAPACITY','ORACLE_PERFORMANCE','ORACLE_JOBS','ORACLE_ASM_DGROUP','ORACLE_ASM_DISK','ORACLE_ETSM_REGULAR_TBSP_INSTANCE','ORACLE_RAC_DATABASE','ORACLE_PLUGABLE_INSTANCE','ORACLE_PLUGGABLE_TS_INST'] AND $EV.mc_parameter within ['CPUCpuUtil','CPUWio','MEMAppUsablePerc','DCMStatus','ProcessorUtilization','MemoryUsage','ServiceStatus','AppServerAvailability','ProcessCpuUsage','PercentMemoryUsed','CpuIoBusy','CpuBusy','InstanceStatus','ArchFreeSpace','Alerts','TempTSLeftPct','ListenerStatus','AlertLogSize','LocksFree','ProcsLeft','TransLeft','LockWaitRatio','FailedJobs','FreeMBPct','DiskGroupStatus','PctUsed','MemberStatus','PDB_Status']) then
+		{
+		$EV.severity = 'WARNING';
+	    };
+   	if ($EV.mc_object_class within ['FILESYSTEM','NT_LOGICAL_DISKS','SWAP','PMW_APPSERVER','UP_AIX_ERR','UP_AIX_ERRPT','SYBASE_AVAILABILITY','SYBASE_NETWORK_STD','SYBASE_DISK_STD','SYBASE_DATABASE','SYBASE_AVAILABILITY'] AND $EV.mc_parameter within ['FSCapacity','FSInodeUsedPercent','FSMountStatus','LDldFreeSpacePercent','SWPTotSwapUsedPercent','PermHardNum','TppuiSouNum','PermOtherNum','errdemonStatus','AppServerAvailability','ASE_Status','PacketErrs','DiskIoErrs','DatabaseSpaceUsedPCT','LogSpaceUsedPCT','ErrorLogUpdates','BkupErrorLogUpdates','BackupServerStatus']) then
+        {
+		$EV.severity = 'MINOR';
+		};
+	if ($EV.mc_object_class within ['LOGMON'] AND $EV.mc_parameter within ['LOGSearchString']) then
+        {
+		$EV.severity = 'CRITICAL';
+		};
+	};
+}
+END
+refine ref_heartbeat:PATROL_EV($EV)
+where [ $EV.mc_parameter within ['EVDailyCheck','PatrolCli'] ]
+{
+	$EV.severity='OK';
+	$EV.mc_parameter_value=$EV.msg;
+}
+END

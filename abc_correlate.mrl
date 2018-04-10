@@ -1,0 +1,27 @@
+#correlate the LOGSearchString event
+correlate logmon_msg:
+	PATROL_EV($LOGSEARCH) where [ $LOGSEARCH.mc_parameter equals 'LOGSearchString' AND $LOGSEARCH.p_class == '11' ]
+with PATROL_EV($LOGCUSTM)
+where [ $LOGSEARCH.mc_object equals $LOGCUSTM.mc_object AND $LOGCUSTM.p_class equals 'LOGGeneral' ]
+within 1 m
+when $LOGSEARCH.status not_equals CLOSED
+{
+	$LOGCUSTM.mc_parameter_value=$LOGSEARCH.mc_parameter_value;	
+	$LOGCUSTM.pes_alarm_max=$LOGSEARCH.pes_alarm_max;
+	$LOGCUSTM.pes_alarm_min=$LOGSEARCH.pes_alarm_min;
+}
+END
+
+
+
+correlate logmon_msg_evspring:
+	PATROL_EV($LOGSEARCH) where [ $LOGSEARCH.mc_parameter equals 'LOGSearchString' AND $LOGSEARCH.p_class == '11' ]
+with PATROL_EV($LOGCUSTM)
+where [ $LOGSEARCH.mc_object equals $LOGCUSTM.mc_object AND $LOGCUSTM.p_class equals 'NOTIFY_EVENT' ]
+within 1 m
+when $LOGSEARCH.status not_equals CLOSED
+{
+	$LOGCUSTM.pes_alarm_max=$LOGSEARCH.pes_alarm_max;
+	$LOGCUSTM.pes_alarm_min=$LOGSEARCH.pes_alarm_min;
+}
+END

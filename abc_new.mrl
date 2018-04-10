@@ -1,0 +1,11 @@
+#log
+new suppress_logmon: PATROL_EV($EV)
+where [ $EV.p_class equals 'LOGGeneral' AND $EV.severity >= WARNING ]
+updates ALL PATROL_EV($OLD_EV)
+where [ $OLD_EV.mc_object == $EV.mc_object AND $OLD_EV.p_class == 'LOGGeneral' AND $OLD_EV.status == 'OPEN' ]
+{
+	$OLD_EV.msg=concat([$OLD_EV.msg,"\n",$EV.msg]);
+	$OLD_EV.repeat_count = $OLD_EV.repeat_count + 1;
+	drop_new;
+}
+END

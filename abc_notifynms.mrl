@@ -1,0 +1,95 @@
+execute NotfiyNMS:
+	PATROL_EV($EV)
+	where [ $EV.p_class != 'LOGGeneral' AND $EV.p_class != 'NOTIFY_EVENT' AND $EV.mc_object_class != 'PPM_Device' AND $EV.mc_object_class != 'APP_PORT' AND $EV.mc_parameter != 'LOGSearchString']
+	when $EV.severity >= OK
+	{
+	#execute($EV,AddExtEvent,[$EV.mc_host,$EV.mc_object,$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,$EV.pes_custom_id1],YES);
+	#execute($EV,AddExtEvent,[concat([$EV.pn_device_name,'-',$EV.mc_host_address]),concat([$EV.pn_device_name,'-',$EV.mc_host_address,'-',$EV.mc_object]),$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time])],YES);
+	#execute($EV,AddExtEvent,[concat([$EV.mc_host,'-',$EV.mc_host_address]),concat([$EV.mc_host,'-',$EV.mc_host_address,'-',$EV.mc_object_class,'-',$EV.mc_object]),$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time]),'HQx',$EV.mc_object],YES);
+	
+	execute($EV,AddExtEvent,[$EV.mc_host_address,concat([$EV.mc_object_class,'-',$EV.mc_object]),$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time]),'HQx',$EV.mc_object],YES);
+}
+END
+
+execute NotifyNMS_LOG:PATROL_EV($EV)
+	#where [$EV.p_class == 'LOGGeneral']
+	where [$EV.p_class == 'NOTIFY_EVENT' AND $EV.mc_parameter == 'LOGSearchString']
+	when $EV.severity >= OK
+	{
+		#execute($EV,AddExtEventLOGMON,[concat([$EV.mc_host,'-',$EV.mc_host_address]),concat([$EV.mc_host,'-',$EV.mc_host_address,'-',$EV.mc_object_class,'-',$EV.mc_object]),$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time]),$EV.msg,$EV.mc_object],YES);
+		
+		execute($EV,AddExtEventLOGMON,[$EV.mc_host_address,concat([$EV.mc_object_class,'-',$EV.mc_object]),$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time]),$EV.msg,$EV.mc_object],YES);
+	}
+END
+
+execute NotfiyNMS_PING:
+           PATROL_EV($EV)
+           where [ $EV.p_class != 'LOGGeneral' AND $EV.p_class != 'NOTIFY_EVENT' AND $EV.mc_object_class == 'PPM_Device']
+           when $EV.severity >= OK
+           {
+	execute($EV,AddExtEventPING,[$EV.mc_object,$EV.mc_object,$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time]),$EV.mc_host,$EV.mc_object],YES);
+}
+END
+
+execute NotfiyNMS_Port:
+           PATROL_EV($EV)
+           where [ $EV.p_class != 'LOGGeneral' AND $EV.p_class != 'NOTIFY_EVENT' AND $EV.mc_object_class == 'APP_PORT']
+           when $EV.severity >= OK
+           {
+	execute($EV,AddExtEventPING,[$EV.mc_host,$EV.mc_object,$EV.mc_parameter,$EV.mc_object_class,$EV.severity,$EV.mc_parameter_value,$EV.pes_alarm_max,$EV.pes_alarm_min,concat([$EV.pes_alert_date,'-',$EV.pes_alert_time]),$EV.mc_host,$EV.mc_object],YES);
+}
+END
+
+
+execute patroldisconn:
+           PPM_SM_EV($EV)
+
+           where [ $EV.mc_object has_prefix 'PA:' ]
+
+           when $EV.severity >= INFO 
+           {   
+    
+        if($EV.severity=='CRITICAL') then
+        {   
+	execute($EV,AddExtEventPING,[$EV.mc_host,"PatrolAgent","PatrolAgent","SELFMONITOR","MAJOR","Disconnected",0,0,$EV.mc_local_reception_time,$EV.mc_host,$EV.mc_object],YES);
+
+        };  
+        if($EV.severity=='INFO') then
+        {   
+	execute($EV,AddExtEventPING,[$EV.mc_host,"PatrolAgent","PatrolAgent","SELFMONITOR","OK","Disconnected",0,0,$EV.mc_local_reception_time,$EV.mc_host,$EV.mc_object],YES);
+        };  
+
+}
+
+END
+execute celldisconn:
+	PPM_SM_EV($EV)
+	where [ $EV.msg contains [ 'Cell on' ] ]
+	when $EV.severity >= INFO
+	{
+        if($EV.severity=='CRITICAL') then
+        {   
+	execute($EV,AddExtEventPING,[$EV.mc_client_address,$EV.pn_device_name,"CellConnection","SELFMONITOR","MAJOR","Disconnected",0,0,$EV.mc_local_reception_time,$EV.mc_host,$EV.mc_object],YES);
+        };  
+        if($EV.severity=='INFO') then
+        {   
+	execute($EV,AddExtEventPING,[$EV.mc_client_address,$EV.pn_device_name,"CellConnection","SELFMONITOR","OK","Disconnected",0,0,$EV.mc_local_reception_time,$EV.mc_host,$EV.mc_object],YES);
+        };  
+}
+END
+
+execute isndisconn:
+	PPM_SM_EV($EV)
+	where [ $EV.msg contains [ 'Integration Service on' ] ]
+	when $EV.severity >= INFO
+	{
+        if($EV.severity=='CRITICAL') then
+        {   
+	execute($EV,AddExtEventPING,[$EV.mc_client_address,$EV.pn_device_name,"ISNConnection","SELFMONITOR","MAJOR","Disconnected",0,0,$EV.mc_local_reception_time,$EV.mc_host,$EV.mc_object],YES);
+        };  
+        if($EV.severity=='INFO') then
+        {   
+	execute($EV,AddExtEventPING,[$EV.mc_client_address,$EV.pn_device_name,"ISNConnection","SELFMONITOR","OK","Disconnected",0,0,$EV.mc_local_reception_time,$EV.mc_host,$EV.mc_object],YES);
+        };  
+}
+END

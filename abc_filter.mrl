@@ -1,0 +1,27 @@
+#filter event from PATROL_EV
+filter abc_patrol_ev_filter1:PASS
+PATROL_EV($EV)
+using {
+	ABC_EventFilter1($EF) 
+	where [$EV.mc_object_class == $EF.APPL_CLASS AND $EV.mc_parameter == $EF.PARAMETER ]
+}
+END
+
+filter abc_patrol_ev_filter2:PASS
+PATROL_EV($EV)
+using {
+	ABC_EventFilter2($EF) 
+	where [$EV.p_class == $EF.P_CLASS AND $EV.p_catalog == $EF.P_CATALOG ]
+}
+END
+
+#filter all patrol events without KM Metadata def
+filter abc_patrol_ev_filter3:NOPASS
+PPM_SM_EV($EV)
+where [ $EV.msg contains ['Unable to process Application Class']
+END
+
+filter abc_patrol_ev_filter4:NOPASS
+PATROL_EV($EV)
+where [ $EV.p_class=='NOTIFY_EVENT' AND $EV.mc_parameter != 'LOGSearchString']
+END
